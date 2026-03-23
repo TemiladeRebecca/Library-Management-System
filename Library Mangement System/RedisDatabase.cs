@@ -240,6 +240,64 @@ namespace Library_Management_System
             return borrowedSet;
         }
 
+        public void IncrementBorrowScore(string memberId)
+        {
+            var key = $"leaderboard:readers";
+            var member = $"member:{memberId}";
+
+            _db.SortedSetIncrement(key, member, 1);
+        }
+
+        public List<(string MemberId, double Score)> GetTopReaders(int count = 10)
+        {
+            var key = $"leaderboard:readers";
+            var topMembers = _db.SortedSetRangeByRankWithScores(
+                        key,
+                        0,
+                        count - 1,
+                        Order.Descending);
+
+            var result = topMembers.Select(v => (MemberId: v.Element.ToString(), Score: v.Score)).ToList();
+
+            return result;
+        }
+
+        public double GetMemberBorrowScore(string memberId)
+        {
+            var key = $"leaderboard:readers";
+            double? score = _db.SortedSetScore(key, $"member:{memberId}");
+
+            return score ?? 0;
+        }
+
+        public void TrackDueDate(string bookId, string memberId, DateTime due)
+        {
+            var key = "borrow:overdue";
+
+            var member = $"{bookId}:{memberId}";
+
+            double score = ((DateTimeOffset)due).ToUnixTimeSeconds();
+
+            _db.SortedSetAdd(key, member, score);
+        }
+
+        public void RemoveDueDate(string bookId)
+        {
+            var key = "borrow:overdue";
+            _db.SortedSetRemove(key, bookId);
+        }
+
+        public List<string> GetOverdueEntries(DateTime asOf)
+        {
+            var key = "borrow:overdue";
+
+            double asOfScore = ((DateTimeOffset)asOf).ToUnixTimeSeconds();
+
+            var overDueMembers = _db.SortedSetRangeByScore(key, double.NegativeInfinity, asOfScore);
+
+            return overDueMembers.Select(v => v.ToString()).ToList();
+        }
+
     }
     
 }
