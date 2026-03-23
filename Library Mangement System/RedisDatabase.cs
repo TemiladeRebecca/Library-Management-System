@@ -148,6 +148,19 @@ namespace Library_Management_System
                     .Where(r => r != null)          // filter nulls
                     .ToList()!;
         }
+
+        public List<BorrowRecord> GetMemberBorrowHistory(string memberId)
+        {
+            var key = $"member:{memberId}:history";
+
+           var borrowHistory = _db.ListRange(key, 0, -1);
+           var result = borrowHistory.Select(v => JsonSerializer.Deserialize<BorrowRecord>(v.ToString()))
+           .Where(r => r != null)
+           .Select(r => r!)
+           .ToList();
+
+           return result;
+        }
     
         public void EnqueueWaitlist(string bookId, string memberId)
             => _db.ListLeftPush($"book:{bookId}:waitlist", memberId); // LPUSH
@@ -284,7 +297,16 @@ namespace Library_Management_System
         public void RemoveDueDate(string bookId)
         {
             var key = "borrow:overdue";
-            _db.SortedSetRemove(key, bookId);
+
+            var allEntries = _db.SortedSetRangeByRank(key, 0, -1);
+
+            foreach (var entry in allEntries)
+            {
+                if (entry.ToString().StartsWith($"{bookId}:"))
+                {
+                    _db.SortedSetRemove(key, entry);
+                }
+            }
         }
 
         public List<string> GetOverdueEntries(DateTime asOf)
@@ -298,6 +320,38 @@ namespace Library_Management_System
             return overDueMembers.Select(v => v.ToString()).ToList();
         }
 
+         public void SaveReview(BookReview review)
+        {
+            var key = $"book:{review.BookId}:reviews";
+
+            var json = JsonSerializer.Serialize(review);
+            _db.ListLeftPush(key, json);
+        }
+
+        public List<BookReview> GetReviewsForBook(string bookId)
+        {
+            var key = $"book:{bookId}:reviews";
+
+            var bookReviews = _db.ListRange(key, 0, -1);
+
+            var result = bookReviews.Select(v => JsonSerializer.Deserialize<BookReview>(v.ToString()))
+            .ToList();
+
+            return result;
+        }
+
+        public double GetAverageRating(string bookId)
+        {
+            var key = $"book:{bookId}:reviews";
+            var bookReviews = _db.ListRange(key, 0, -1);
+
+            var ratings = bookReviews.Select(v => JsonSerializer.Deserialize<BookReview>(v.ToString()))
+            .Select(r => r!.Rating);
+
+            if (!ratings.Any()) return 0;
+
+            return ratings.Average();
+        }
     }
     
 }
