@@ -93,18 +93,44 @@ namespace Library_Management_System
         public void SaveMember(Member member)
         {
             var memberKey = $"member:{member.Id}";
-            var borrowKey = $"member:{member.Id}:borrowed";
 
             _db.HashSet(memberKey, new HashEntry[]
             {
                 new("id", member.Id),
                 new("name", member.Name),
-                new("memberShipType", member.MembershipType)
+                new("membershipType", member.MembershipType)
             });
+
+            _db.SetAdd("members:all", member.Id);
         }
     
-        // SaveMember and GetMember follow the same Hash pattern as SaveBook / GetBook.
-        // Implement them yourself using HSET / HGETALL.
+        public Member? GetMember(string id)
+        {
+            var key = $"member:{id}";
+            var hash = _db.HashGetAll(key);
+
+            if (hash.Length == 0)
+            {
+                return null;
+            }
+
+            var m = hash.ToDictionary(h => h.Name.ToString(), h => h.Value.ToString());
+            return new Member(m["id"], m["name"], m["membershipType"]);
+        }
+
+        public List<Member> GetAllMembers()
+        {
+            var ids = _db.SetMembers("members:all");
+            var members = new List<Member>();
+
+            foreach (var id in ids)
+            {
+                var member = GetMember(id.ToString());
+                if (member != null) members.Add(member);
+                
+            }
+            return members;
+        }
 
 
     // List Operations — History and Waitlist
@@ -116,12 +142,12 @@ namespace Library_Management_System
         }
     
         public List<BorrowRecord> GetBorrowHistory(int limit = 50)
-{
-    return _db.ListRange("borrow:history", 0, limit - 1)
-              .Select(v => JsonSerializer.Deserialize<BorrowRecord>(v.ToString()))
-              .Where(r => r != null)          // filter nulls
-              .ToList()!;
-}
+        {
+            return _db.ListRange("borrow:history", 0, limit - 1)
+                    .Select(v => JsonSerializer.Deserialize<BorrowRecord>(v.ToString()))
+                    .Where(r => r != null)          // filter nulls
+                    .ToList()!;
+        }
     
         public void EnqueueWaitlist(string bookId, string memberId)
             => _db.ListLeftPush($"book:{bookId}:waitlist", memberId); // LPUSH
@@ -136,8 +162,83 @@ namespace Library_Management_System
             => _db.ListRange($"book:{bookId}:waitlist", 0, -1)     // LRANGE
                 .Select(v => v.ToString()).ToList();
 
+        public void AddBookToGenre(string bookId, string genre)
+        {
+            var bookGenreKey = $"book:{bookId}:genres";
+           _db.SetAdd(bookGenreKey, genre);
 
+           var genreIndexKey = $"genre:{genre}:books";
+           _db.SetAdd(genreIndexKey, bookId);
+        }
 
+        public List<string> GetBookIdsByGenre(string genre)
+        {
+            var genreIndexKey = $"genre:{genre}:books";
+            var Ids = _db.SetMembers(genreIndexKey);
+            var bookIds = new List<string>();
+
+            foreach (var id in Ids)
+            {
+                var s = id.ToString();
+                bookIds.Add(s);
+            }
+            return bookIds;
+        }
+
+        public List<string> GetGenresForBook(string bookId)
+        {
+            var bookGenreKey = $"book:{bookId}:genres";
+            var genres = _db.SetMembers(bookGenreKey);
+            var bookGenres = new List<string>();
+
+            foreach (var genre in genres)
+            {
+                var g = genre.ToString();
+                bookGenres.Add(g);
+            }
+
+            return bookGenres;
+        }
+
+        public List<string> GetBooksInBothGenres(string g1, string g2)
+        {
+            var genreIndexKey1 = $"genre:{g1}:books";
+            var genreIndexKey2 = $"genre:{g2}:books";
+
+            var commonBooks = _db.SetCombine(SetOperation.Intersect, genreIndexKey1, genreIndexKey2);
+            var books = new List<string>();
+
+            foreach(var book in commonBooks)
+            {
+                var b = book.ToString();
+                books.Add(b);
+            }
+
+            return books;
+        }
+
+        public void TrackBorrowedByMember(string memberId, string bookId)
+        {
+            var key = $"member:{memberId}:borrowed";
+
+            _db.SetAdd(key, bookId);
+        }
+
+        public void UntrackBorrowedByMember(string memberId, string bookId)
+        {
+            var key = $"member:{memberId}:borrowed";
+            _db.SetRemove(key, bookId);
+        }
+
+        public HashSet<string> GetCurrentlyBorrowedByMember(string memberId)
+        {
+            var key = $"member:{memberId}:borrowed";
+            var borrowed = _db.SetMembers(key);
+
+            var borrowedSet = borrowed.Select(v => v.ToString()).ToHashSet();
+
+            return borrowedSet;
+        }
 
     }
     
