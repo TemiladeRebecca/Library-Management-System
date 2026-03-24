@@ -108,6 +108,8 @@ namespace Library_Management_System
 
             _books.Add(newBook);
 
+            Console.WriteLine($"Added book => ID: {newBook.ItemId}, Title: {newBook.Title}, Author: {newBook.Author}");
+
             _notifier.Notify($"Book '{title}' added successfully.");
         }
 
@@ -168,12 +170,14 @@ namespace Library_Management_System
             if (string.IsNullOrWhiteSpace(query)) return result;
 
             var books = _books.GetAll();
+            Console.WriteLine($"Books in repository: {books.Count}");
 
             foreach (var book in books)
             {
                 if (book.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                     book.Author.Contains(query, StringComparison.OrdinalIgnoreCase))
                 {
+                    Console.WriteLine($"{book.Title} by {book.Author}");
                     result.Add(book);
                 }
             }
