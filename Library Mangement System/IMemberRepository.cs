@@ -25,7 +25,6 @@ namespace Library_Management_System
         public void Add(Member member)
         {
             _db.SaveMember(member);
-            
         }
 
         public Member? FindById(string id)
