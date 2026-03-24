@@ -11,5 +11,12 @@ namespace Library_Management_System
         {
             MembershipType = membershipType;
         }
+
+        public virtual int GetBorrowLimit(IDatabase db)
+        {
+            var limit = db.GetConfig("member:borrowLimit");
+
+            return limit != null ? int.Parse(limit) : 5;
+        }
     }
 }
