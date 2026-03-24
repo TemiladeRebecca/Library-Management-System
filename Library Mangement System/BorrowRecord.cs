@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Library_Management_System
 {
-    internal struct BorrowRecord
+    internal record BorrowRecord
     {
         public string BookId { get; }
         public string MemberId { get; }
