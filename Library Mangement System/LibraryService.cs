@@ -15,21 +15,26 @@ namespace Library_Management_System
         List<Book> GetAllBooks();
         List<Member> GetAllMembers();
         List<BorrowRecord> GetBorrowHistory();
+
+        List<Book> SearchBook(string query);
     }
 
     internal class LibraryService : ILibraryService
     {
+        private readonly IDatabase _db;
         private readonly IBookRepository _books;
         private readonly IMemberRepository _members;
         private readonly IBorrowRecordRepository _borrowRecords; 
         private readonly INotifier _notifier;
 
         public LibraryService(
+            IDatabase db,
             IBookRepository books,
             IMemberRepository members,
             IBorrowRecordRepository borrowRecord,
             INotifier notifier)
         {
+            _db = db;
             _books = books;
             _members = members;
             _borrowRecords = borrowRecord;
@@ -38,20 +43,32 @@ namespace Library_Management_System
 
         public void BorrowBook(string bookId, string memberId)
         {
-            var book = _books.FindById(bookId);
+            var book   = _books.FindById(bookId);
             var member = _members.FindById(memberId);
-
-            if (book == null) { _notifier.Notify("Book not found."); return; }
+        
+            if (book == null)   { _notifier.Notify("Book not found.");   return; }
             if (member == null) { _notifier.Notify("Member not found."); return; }
-            if (!book.IsAvailable()) { _notifier.Notify($"'{book.Title}' is already borrowed."); return; }
-
+        
+            if (!book.IsAvailable())
+            {
+                _notifier.Notify($"'{book.Title}' is unavailable. Adding you to the waitlist.");
+                _db.EnqueueWaitlist(bookId, memberId);   // LIST  — joins the queue
+                return;
+            }
+        
+            var dueDate = DateTime.UtcNow.AddDays(14);
+        
             book.Borrow(memberId);
-            var record = new BorrowRecord(bookId, memberId);
-            _borrowRecords.Add(record);
-            _notifier.Notify($"'{book.Title}' borrowed by {member.Name}. Due: {record.DueDate:dd MMM yyyy}");
+            // _books.Save(book);                                      // HASH  — updated book fields
+            _db.TrackBorrowedByMember(memberId, bookId);            // SET   — member's active borrows
+            _db.TrackDueDate(bookId, memberId, dueDate);            // SORTED SET — overdue index
+            _db.PushBorrowRecord(new BorrowRecord(bookId, memberId)); // LIST — history log
+            _db.IncrementBorrowScore(memberId);                     // SORTED SET — leaderboard
+        
+            _notifier.Notify($"'{book.Title}' borrowed. Due: {dueDate:dd MMM yyyy}");
         }
 
-        // Implement all other interface methods...
+
         public void AddBook(string title, string author)
         {
             if (string.IsNullOrWhiteSpace(title) || title.Length < 2)
@@ -65,7 +82,20 @@ namespace Library_Management_System
                 _notifier.Notify("Invalid author name.");
                 return;
             }
-            var newBook = new Book(author, Guid.NewGuid().ToString(), title);
+
+            var id = _db.GenerateId("books");
+            var isbn = "N/A";
+            var publishYear = DateTime.UtcNow.Year;
+            var genres = new List<string>();
+
+            var newBook = new Book(
+                id,
+                title,
+                author,
+                isbn,
+                publishYear,
+                genres
+            );
 
             _books.Add(newBook);
 
@@ -95,8 +125,9 @@ namespace Library_Management_System
                 _notifier.Notify($"Member '{name}' with membership type '{membershipType}' already exists.");
                 return;
             }
-
-            var newMember = new Member(Guid.NewGuid().ToString(), name, membershipType);
+            
+            var id = _db.GenerateId("members");
+            var newMember = new Member(id, name, membershipType);
             _members.Add(newMember);
 
             _notifier.Notify($"Member '{name}' registered successfully.");
@@ -111,10 +142,34 @@ namespace Library_Management_System
             }
 
             var book = _books.FindById(bookId);
+
             if (book == null) { _notifier.Notify("Book not found."); return; }
+
             if (book.IsAvailable()) { _notifier.Notify($"'{book.Title}' is not currently borrowed."); return; }
+
             book.Return();
+        
             _notifier.Notify($"'{book.Title}' has been returned. Thank you!");
+        }
+
+        public List<Book> SearchBook(string query)
+        {
+            var result = new List<Book>();
+
+            if (string.IsNullOrWhiteSpace(query)) return result;
+
+            var books = _books.GetAll();
+
+            foreach (var book in books)
+            {
+                if (book.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                    book.Author.Contains(query, StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Add(book);
+                }
+            }
+
+            return result;
         }
 
         List<Book> ILibraryService.GetAllBooks() => _books.GetAll();
