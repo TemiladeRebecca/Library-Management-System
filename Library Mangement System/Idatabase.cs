@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Library_Management_System
 {
-    public interface IDatabase
+    internal interface IDatabase
 {
     // ── Strings: ID generation & config ─────────────────────────────
     string  GenerateId(string entity);                    // INCR counter:{entity}
@@ -13,7 +13,7 @@ namespace Library_Management_System
     string? GetConfig(string key);                        // GET config:{key}
  
     // ── Hashes: entity storage ───────────────────────────────────────
-    void         SaveBook(Book book);
+    void SaveBook(Book book);
     Book?        GetBook(string id);
     List<Book>   GetAllBooks();
     void         DeleteBook(string id);
