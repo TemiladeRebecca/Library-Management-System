@@ -66,6 +66,15 @@ namespace Library_Management_System
             _db.IncrementBorrowScore(memberId);                     // SORTED SET — leaderboard
         
             _notifier.Notify($"'{book.Title}' borrowed. Due: {dueDate:dd MMM yyyy}");
+
+            var borrowedBooks = _db.GetCurrentlyBorrowedByMember(memberId);
+            var limit = member.GetBorrowLimit(_db);
+
+            if (borrowedBooks.Count >= limit)
+            {
+                 _notifier.Notify($"Borrow limit reached ({limit} books).");
+                 return;
+            }
         }
 
 
