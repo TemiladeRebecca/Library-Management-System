@@ -18,7 +18,7 @@ namespace Library_Management_System
         {
             _db = db;
         }
-        public void Add(BorrowRecord record) => _db.BorrowRecords.Add(record);
-        public List<BorrowRecord> GetAll() => _db.BorrowRecords;
+        public void Add(BorrowRecord record) => _db.PushBorrowRecord(record);
+        public List<BorrowRecord> GetAll() => _db.GetBorrowHistory();
     }
 }
