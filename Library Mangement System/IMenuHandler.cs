@@ -83,6 +83,16 @@ namespace Library_Management_System
                             _notifier.Notify($"Book ID: {record.BookId}, Member ID: {record.MemberId}, Borrowed On: {record.BorrowedOn:dd MMM yyyy}, Due: {record.DueDate:dd MMM yyyy}");
                         break;
                     case "8":
+                        _notifier.Notify("Searching...");
+                        Console.Write("Enter title or author: ");
+                        var query = Console.ReadLine();
+                        var result = _service.SearchBook(query);
+                        foreach (var book in result)
+                        {
+                            book.Search();
+                        }
+                        break;
+                    case "9":
                         _notifier.Notify("Exiting the system. Goodbye!");
                         running = false;
                         break;
@@ -102,7 +112,8 @@ namespace Library_Management_System
             Console.WriteLine("5. View All Books");
             Console.WriteLine("6. View All Members");
             Console.WriteLine("7. View Borrow History");
-            Console.WriteLine("8. Exit");
+            Console.WriteLine("8. Search for a book by the title or author");
+            Console.WriteLine("9. Exit");
         }
     }
 }
