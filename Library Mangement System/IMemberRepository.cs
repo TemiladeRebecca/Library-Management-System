@@ -24,15 +24,19 @@ namespace Library_Management_System
 
         public void Add(Member member)
         {
-            _db.Members.Add(member);
+            _db.SaveMember(member);
+            
         }
 
         public Member? FindById(string id)
         {
-            return _db.Members.FirstOrDefault(b => b.Id == id);
+           return  _db.GetMember(id);
         }
 
         public List<Member> GetAll()
-        { return _db.Members; }
+        {
+            return _db.GetAllMembers();
+        }
+       
     }
 }
