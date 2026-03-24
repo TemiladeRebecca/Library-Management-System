@@ -23,9 +23,9 @@ namespace Library_Management_System
             _db = db;
         }
 
-        public void Add(Book book) => _db.Books.Add(book);
-        public Book? FindById(string id) => _db.Books.FirstOrDefault(b => b.ItemId == id);
-        public List<Book> GetAll() => _db.Books;
+        public void Add(Book book) => _db.SaveBook(book);
+        public Book? FindById(string id) => _db.GetBook(id);
+        public List<Book> GetAll() => _db.GetAllBooks();
 
     }
 }
