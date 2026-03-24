@@ -89,7 +89,7 @@ namespace Library_Management_System
                         var result = _service.SearchBook(query);
                         foreach (var book in result)
                         {
-                            book.Search();
+                            _notifier.Notify(book.Search());
                         }
                         break;
                     case "9":
